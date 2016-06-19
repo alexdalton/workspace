@@ -8,6 +8,8 @@ show(vers)
 library(Matrix)
 library(ROCR)
 library(glmnet)
+library(e1071)
+
 
 .ls.objects <- function (pos = 1, pattern, order.by, decreasing=FALSE, head=FALSE, n=5) { # order objects by size
     napply <- function(names, fn) sapply(names, function(x)
@@ -196,7 +198,7 @@ forcelarge = 0
 
 property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain")
 
-rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_many/Human.GO.TM.Loose.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 1, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain"), writepreds = 0, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_"){
+rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_many/Human.GO.TM.Loose.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 1, nfeatures = 500, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain"), writepreds = 0, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_"){
     
     uni = tail(unlist(strsplit(unifile, "/")),1)
     uni = gsub(".txt","",uni)
@@ -359,24 +361,15 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 testuni = as.character(setdiff(uniIDs,train_nidxs))
                 ntestuni = length(testuni)
                 
-                # if(ntrain*ntest*1.0*ntestuni==0){ ## either no training or testing examples
-                #     row1 = c(network, weight, normalize, uni, restart, maxiters, thresh, st2keep, posset, nfolds, 	iter, "baseline", -1000, -1000, -1000)
-                #     row2 = c(network, weight, normalize, uni, restart, maxiters, thresh, st2keep, posset, nfolds, iter, "stage1", -1000, -1000, -1000)
-                #     row3 = c(network, weight, normalize, uni, restart, maxiters, thresh, st2keep, posset, nfolds, iter, "diff", -1000, -1000, -1000)
-                #     row4 = c(network, weight, normalize, uni, restart, maxiters, thresh, st2keep, posset, nfolds, iter, "stage2", -1000, -1000, -1000)
-                #     restable = rbind(restable, row1, row2, row3, row4)
-                #     next
-                # }  
-                
                 # run genlasso on training set and
                 y = blankvec
                 midxs = match(train_nidxs, uniIDs)
                 y[midxs] = as.numeric(query_gs[train_nidxs,2])
                 glmmod = glmnet(x=smoothedNetwork, y=as.factor(y), alpha=1, family='binomial')
                 coefs = coef(glmmod)
-                selectedFeatures = names(which(coefs[,ncol(coefs)] != 0) )
+                selectedFeatures = names(which(coefs[,max(which(abs(glmmod$df - nfeatures) == min(abs(glmmod$df - nfeatures))))] != 0) )
                 selectedFeatures = selectedFeatures[2:length(selectedFeatures)]  # get rid of "intercept"
-                midxs = match(selectedFeatures, nodenames)
+                midxs = match(selectedFeatures, uniIDs)
                 weights = c(nrow(smoothedNetwork) / length(train_nidxs), 1)
                 names(weights) = c(1, 0)
                 
@@ -384,9 +377,12 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 pred = predict(svc,  smoothedNetwork[, midxs], probability = TRUE)
                 
                 y = blankvec
-                midxs = match(c(train_nidxs, test_idxs), uniIDs)
-                y[midxs] = as.numeric(query_gs[c(train_nidxs, test_idxs),2])
-                model = prediction(attr(pred, "probabilities")[,2], as.factor(y))
+                midxs = match(test_nidxs, uniIDs)
+                y[midxs] = as.numeric(query_gs[test_nidxs,2])
+                model = prediction(attr(pred, "probabilities")[,2][testuni], as.factor(y)[testuni])
+                auc  = performance(model, "auc")
+                perf = performance(model,"tpr","fpr")
+                aucval = round(as.numeric(slot(auc, "y.values")),3)
                 
                 
             } #end iter
@@ -395,6 +391,6 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
 } #end function
 
 
-rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.test.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 2, st2keep = 50, property_types = c("PPI_direct_interaction"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
+rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.test.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, st2keep = 50, nfeatures = 500, property_types = c("PPI_direct_interaction"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
 
 
