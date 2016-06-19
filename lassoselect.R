@@ -319,7 +319,7 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 rwr_res = RWR(boolSparceMat, transmat, restart, query, startvec, maxiters, thresh)
                 smoothedNetwork[uniID, ] = rwr_res$vec[uniIDs]
                 i = i + 1
-                show(i / length(uniIDs))
+                #show(i / length(uniIDs))
             }
             #write.table(smoothedNetwork, file=smoothedNetFile, row.names=TRUE, col.names=TRUE)
         } else {
@@ -362,7 +362,7 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 ntestuni = length(testuni)
                 
                 # run genlasso on training set and
-                y = blankvec
+                y = blankvec[uniIDs]
                 midxs = match(train_nidxs, uniIDs)
                 y[midxs] = as.numeric(query_gs[train_nidxs,2])
                 glmmod = glmnet(x=smoothedNetwork, y=as.factor(y), alpha=1, family='binomial')
@@ -376,7 +376,7 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 svc = svm(x = smoothedNetwork[, midxs], as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
                 pred = predict(svc,  smoothedNetwork[, midxs], probability = TRUE)
                 
-                y = blankvec
+                y = blankvec[uniIDs]
                 midxs = match(test_nidxs, uniIDs)
                 y[midxs] = as.numeric(query_gs[test_nidxs,2])
                 model = prediction(attr(pred, "probabilities")[,2][testuni], as.factor(y)[testuni])
@@ -384,13 +384,12 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 perf = performance(model,"tpr","fpr")
                 aucval = round(as.numeric(slot(auc, "y.values")),3)
                 
-                
             } #end iter
         } #end queryset
     } #end restart
 } #end function
 
 
-rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.test.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, st2keep = 50, nfeatures = 500, property_types = c("PPI_direct_interaction"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
+rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.go_curated.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, st2keep = 50, nfeatures = 500, property_types = c("go_curated_evidence"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
 
 
