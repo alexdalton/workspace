@@ -188,7 +188,6 @@ thresh = 0.001
 
 st2keep = 50
 writepreds = 1
-nfolds = 1
 
 # queryfile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/msigdb_combo/ZHANG_BREAST_CANCER_PROGENITORS.CB.txt"
 # restart = .7
@@ -197,7 +196,7 @@ forcelarge = 0
 
 property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain")
 
-rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_many/Human.GO.TM.Loose.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 10, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain"), writepreds = 0, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_"){
+rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_many/Human.GO.TM.Loose.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 1, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain"), writepreds = 0, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_"){
     
     uni = tail(unlist(strsplit(unifile, "/")),1)
     uni = gsub(".txt","",uni)
@@ -346,14 +345,9 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
             nquery = length(queryIDs)
             
             set.seed(041185)
-            folds = sample(cut(seq(1,nquery),breaks=10,labels=FALSE))
+            folds = sample(cut(seq(1,nquery),breaks=nfolds,labels=FALSE))
             
             for(iter in 1:nfolds){
-                # iter = 1
-                ## read query set
-                outfile = paste(sep="", outdir, uni, ".", network, ".", weight, ".", normalize, ".",  maxiters, ".", thresh, ".", st2keep, ".", restart, ".", posset, ".", iter, ".", nfolds,".rwr")
-                show(outfile)
-                if(file.exists(outfile)){show(c("Already exists ", outfile)); next}
                 
                 ## separate training and testing
                 train_idxs = which(folds!=iter)
@@ -389,12 +383,18 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 svc = svm(x = smoothedNetwork[, midxs], as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
                 pred = predict(svc,  smoothedNetwork[, midxs], probability = TRUE)
                 
+                y = blankvec
+                midxs = match(c(train_nidxs, test_idxs), uniIDs)
+                y[midxs] = as.numeric(query_gs[c(train_nidxs, test_idxs),2])
+                model = prediction(attr(pred, "probabilities")[,2], as.factor(y))
+                
+                
             } #end iter
         } #end queryset
     } #end restart
 } #end function
 
 
-rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.PPI_direct.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 10, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "STRING_textmining"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
+rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.test.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 2, st2keep = 50, property_types = c("PPI_direct_interaction"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
 
 
