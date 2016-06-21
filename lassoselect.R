@@ -319,7 +319,7 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 rwr_res = RWR(boolSparceMat, transmat, restart, query, startvec, maxiters, thresh)
                 smoothedNetwork[uniID, ] = rwr_res$vec[uniIDs]
                 i = i + 1
-                #show(i / length(uniIDs))
+                show(i / length(uniIDs))
             }
             #write.table(smoothedNetwork, file=smoothedNetFile, row.names=TRUE, col.names=TRUE)
         } else {
@@ -365,15 +365,22 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 y = blankvec[uniIDs]
                 midxs = match(train_nidxs, uniIDs)
                 y[midxs] = as.numeric(query_gs[train_nidxs,2])
-                glmmod = glmnet(x=smoothedNetwork, y=as.factor(y), alpha=1, family='binomial')
-                coefs = coef(glmmod)
-                selectedFeatures = names(which(coefs[,max(which(abs(glmmod$df - nfeatures) == min(abs(glmmod$df - nfeatures))))] != 0) )
-                selectedFeatures = selectedFeatures[2:length(selectedFeatures)]  # get rid of "intercept"
-                midxs = match(selectedFeatures, uniIDs)
+                # glmmod = glmnet(x=smoothedNetwork, y=as.factor(y), alpha=1, family='binomial', nlambda=400)
+                # coefs = coef(glmmod)
+                # show(glmmod$df[1])
+                #selectedFeatures = names(which(coefs[,max(which(abs(glmmod$df - nfeatures) == min(abs(glmmod$df[2:length(glmmod$df)] - nfeatures))))] != 0) )
+                # selectedFeatures = names(which(coefs[,ncol(coefs)] != 0))
+                # selectedFeatures = selectedFeatures[2:length(selectedFeatures)]  # get rid of "intercept"
+                
+                # midxs = match(selectedFeatures, uniIDs)
+                # if (length(midxs) == 0 || is.na(midxs[1])) {
+                #     next
+                # }
                 weights = c(nrow(smoothedNetwork) / length(train_nidxs), 1)
                 names(weights) = c(1, 0)
+                svc = svm(x = smoothedNetwork, as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
                 
-                svc = svm(x = smoothedNetwork[, midxs], as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
+                #svc = svm(x = smoothedNetwork[, midxs], as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
                 pred = predict(svc,  smoothedNetwork[, midxs], probability = TRUE)
                 
                 y = blankvec[uniIDs]
@@ -383,7 +390,9 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 auc  = performance(model, "auc")
                 perf = performance(model,"tpr","fpr")
                 aucval = round(as.numeric(slot(auc, "y.values")),3)
-                
+                show(queryfile)
+                show(length(selectedFeatures))
+                show(aucval)
             } #end iter
         } #end queryset
     } #end restart
