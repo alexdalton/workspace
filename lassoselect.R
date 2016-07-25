@@ -137,6 +137,41 @@ threeCol2listMat<- function(a = c("a","b","c","c"), b = c("a","b","b","b"), v = 
     return(-1)
 }
 
+SMOTE <- function(sampleSet, N, k) {
+    T = nrow(sampleSet)
+    N = N / 100
+    
+    syntheticSamples = NULL
+
+    for (i in 1:T) {
+        currentSample = sampleSet[i, ]
+        distances = vector(mode = "numeric", length = T)
+        for (j in 1:T) {
+            otherSample = sampleSet[j, ]
+            distances[j] = sqrt(sum((currentSample - otherSample)^2))
+            if (j == i) {
+                distances[j] = 10000000
+            }
+        }
+        kNearest = order(distances)[1:k]
+        for (randomNearest in sample(kNearest, N)) {
+            neighborSample = sampleSet[randomNearest, ]
+            syntheticSample = vector(mode = "numeric", length=length(neighborSample))
+            for (featureIndex in 1:length(neighborSample)) {
+                if (runif(1, 0, 1) > .50) {
+                    syntheticSample[featureIndex] = neighborSample[featureIndex]
+                }
+                else {
+                    syntheticSample[featureIndex] = currentSample[featureIndex]
+                }
+            }
+            syntheticSamples = rbind(syntheticSamples, syntheticSample)
+        }
+    }
+    rownames(syntheticSamples) = paste("syntheticSample", as.character(1:nrow(syntheticSamples)), sep="")
+    return(syntheticSamples)
+}
+
 RWR<- function(boolSparceMat, transmat, restart, query, startvec, maxiters, thresh){
     damping = 1-restart
     query = query / sum(query)
@@ -307,27 +342,28 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
         blankvec = structure(rep(0,nnodes), names = nodenames)
         startvec = blankvec + 1 / nnodes
         
-        smoothedNetFile = paste(sep="", outdir, uni, ".", network, ".", weight, ".", normalize, ".", maxiters, ".", thresh, ".", st2keep, ".", paste(collapse="_", restarts), ".smoothed")
-        if(!file.exists(smoothedNetFile)) {
-            smoothedNetwork = matrix(0, nrow=length(uniIDs), ncol=length(uniIDs))
-            colnames(smoothedNetwork) = uniIDs
-            rownames(smoothedNetwork) = uniIDs
-            i = 0
-            for(uniID in uniIDs){
-                query = blankvec
-                query[uniID] = 1
-                rwr_res = RWR(boolSparceMat, transmat, restart, query, startvec, maxiters, thresh)
-                smoothedNetwork[uniID, ] = rwr_res$vec[uniIDs]
-                i = i + 1
-                show(i / length(uniIDs))
-            }
-            #write.table(smoothedNetwork, file=smoothedNetFile, row.names=TRUE, col.names=TRUE)
-        } else {
-            smoothedNetwork = as.matrix(read.table(smoothedNetFile, header=TRUE, row.names = 1))
-        }
+        # smoothedNetFile = paste(sep="", outdir, uni, ".", network, ".", weight, ".", normalize, ".", maxiters, ".", thresh, ".", st2keep, ".", paste(collapse="_", restarts), ".smoothed")
+        # if(!file.exists(smoothedNetFile)) {
+        #     smoothedNetwork = matrix(0, nrow=length(uniIDs), ncol=length(uniIDs))
+        #     colnames(smoothedNetwork) = uniIDs
+        #     rownames(smoothedNetwork) = uniIDs
+        #     i = 0
+        #     for(uniID in uniIDs){
+        #         query = blankvec
+        #         query[uniID] = 1
+        #         rwr_res = RWR(boolSparceMat, transmat, restart, query, startvec, maxiters, thresh)
+        #         smoothedNetwork[uniID, ] = rwr_res$vec[uniIDs]
+        #         i = i + 1
+        #         show(i / length(uniIDs))
+        #     }
+        #     #write.table(smoothedNetwork, file=smoothedNetFile, row.names=TRUE, col.names=TRUE)
+        # } else {
+        #     smoothedNetwork = as.matrix(read.table(smoothedNetFile, header=TRUE, row.names = 1))
+        # }
 
         # read positive set names
         possets = as.character(read.table(possetfile)[,1])
+        transmat = as.matrix(transmat[uniIDs, uniIDs])
         
         for (queryfile in possets){
             
@@ -349,7 +385,7 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
             set.seed(041185)
             folds = sample(cut(seq(1,nquery),breaks=nfolds,labels=FALSE))
             
-            for(iter in 1:nfolds){
+            for(iter in 1:1){
                 
                 ## separate training and testing
                 train_idxs = which(folds!=iter)
@@ -360,29 +396,38 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 ntest = length(test_nidxs)
                 testuni = as.character(setdiff(uniIDs,train_nidxs))
                 ntestuni = length(testuni)
+                show(queryfile)
                 
+                # syntheticSamples = SMOTE(smoothedNetwork[train_nidxs, ], k=5, N=300)
+                # smoothedNetwork = rbind(smoothedNetwork, syntheticSamples)
+                # y_synthetic = structure(rep(1,nrow(syntheticSamples)), names = rownames(syntheticSamples))
+
                 # run genlasso on training set and
                 y = blankvec[uniIDs]
                 midxs = match(train_nidxs, uniIDs)
                 y[midxs] = as.numeric(query_gs[train_nidxs,2])
-                # glmmod = glmnet(x=smoothedNetwork, y=as.factor(y), alpha=1, family='binomial', nlambda=400)
-                # coefs = coef(glmmod)
-                # show(glmmod$df[1])
-                #selectedFeatures = names(which(coefs[,max(which(abs(glmmod$df - nfeatures) == min(abs(glmmod$df[2:length(glmmod$df)] - nfeatures))))] != 0) )
-                # selectedFeatures = names(which(coefs[,ncol(coefs)] != 0))
-                # selectedFeatures = selectedFeatures[2:length(selectedFeatures)]  # get rid of "intercept"
-                
-                # midxs = match(selectedFeatures, uniIDs)
-                # if (length(midxs) == 0 || is.na(midxs[1])) {
-                #     next
-                # }
-                weights = c(nrow(smoothedNetwork) / length(train_nidxs), 1)
+                #y = c(y, y_synthetic)
+                glmmod = glmnet(x=transmat, y=as.factor(y), alpha=1, family='binomial', nlambda=400)
+                coefs = coef(glmmod)
+                selectedFeatures = names(which(coefs[,max(which(abs(glmmod$df - nfeatures) == min(abs(glmmod$df[2:length(glmmod$df)] - nfeatures))))] != 0) )
+                #selectedFeatures = names(which(coefs[,ncol(coefs)] != 0))
+                selectedFeatures = selectedFeatures[2:length(selectedFeatures)]  # get rid of "intercept"
+                show(length(selectedFeatures))
+                midxs = match(selectedFeatures, uniIDs)
+                if (length(midxs) == 0 || is.na(midxs[1])) {
+                    #smoothedNetwork = smoothedNetwork[uniIDs, uniIDs]
+                    next
+                }
+                weights = c(nrow(transmat) / length(train_nidxs), 1)
                 names(weights) = c(1, 0)
-                svc = svm(x = smoothedNetwork, as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
                 
+                svc = svm(x = transmat[, midxs], as.factor(y), kernel='radial', gamma = 1 / length(uniIDs), probability = TRUE, class.weights = weights)
+                pred = predict(svc,  transmat[, midxs], probability = TRUE)
                 #svc = svm(x = smoothedNetwork[, midxs], as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
-                pred = predict(svc,  smoothedNetwork[, midxs], probability = TRUE)
+                #pred = predict(svc,  smoothedNetwork[, midxs], probability = TRUE)
                 
+                #smoothedNetwork = smoothedNetwork[uniIDs, uniIDs]
+
                 y = blankvec[uniIDs]
                 midxs = match(test_nidxs, uniIDs)
                 y[midxs] = as.numeric(query_gs[test_nidxs,2])
@@ -390,8 +435,16 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
                 auc  = performance(model, "auc")
                 perf = performance(model,"tpr","fpr")
                 aucval = round(as.numeric(slot(auc, "y.values")),3)
-                show(queryfile)
-                show(length(selectedFeatures))
+                show(aucval)
+                
+                y = blankvec[uniIDs]
+                midxs = match(train_nidxs, uniIDs)
+                y[midxs] = as.numeric(query_gs[train_nidxs,2])
+                trainuni = as.character(setdiff(uniIDs,test_nidxs))
+                model = prediction(attr(pred, "probabilities")[,2][trainuni], as.factor(y)[trainuni])
+                auc  = performance(model, "auc")
+                perf = performance(model,"tpr","fpr")
+                aucval = round(as.numeric(slot(auc, "y.values")),3)
                 show(aucval)
             } #end iter
         } #end queryset
@@ -399,6 +452,4 @@ rwr_2stage<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists
 } #end function
 
 
-rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.go_curated.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, st2keep = 50, nfeatures = 500, property_types = c("go_curated_evidence"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
-
-
+rwr_2stage(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", networkfile = "C:/Users/Alex/workspace/data/msigdb/networks/1sp_1et/ENSG.STRING_text.500.txt", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, st2keep = 50, nfeatures = 500, property_types = c("STRING_textmining"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
