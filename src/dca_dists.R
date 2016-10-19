@@ -37,19 +37,19 @@ library(proxy)
 
 lsos <- function(..., n=20) { # get top objects by size
     .ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n)
-}     
+}
 
-dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", DCANetFile = "C:/Users/Alex/workspace/data/GO_DCA_1000.emb", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 1, nfeatures = 500, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain"), writepreds = 0, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_"){
+dca_dist_analysis<- function(possetfile = "/workspace/R-code/data/msigdb/setlists/combo.txt", unifile = "/workspace/R-code/data/msigdb/gene_sets/hsap_universe.txt", DCANetFile = "/workspace/Meng/model/GO_DCA_1000.emb", weight = "weighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, nfeatures = 250, st2keep = 50, property_types = c("go_curated_evidence", "go_inferred_evidence", "pfam_domain"), writepreds = 0, outdir = "/workspace/R-code/data/msigdb/results/1st_"){
     possetname = tail(unlist(strsplit(possetfile, "/")),1)
     possetname = gsub(".txt","",possetname)
-    
+
     # read gene universe file
     universe = read.table(unifile)
     rownames(universe) = as.character(universe[,1])
     if(dim(universe)[2]<2){
         universe = cbind(as.character(universe[,1]), rep(1, length(universe[,1])) )
     }
-    
+
     uniIDs = sort(as.character(unique(universe[,1])))
     dcaMatrix <- as.matrix(read.table(DCANetFile, row.names=1))
     nodeNames = rownames(dcaMatrix)
@@ -62,14 +62,14 @@ dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/s
 
     rtable = NULL
     blankvec = structure(rep(0,length(geneNodeNames)), names=geneNodeNames)
-    
+
     for (queryfile in possets){
-        
+
         posset = tail(unlist(strsplit(queryfile, "/")),1)
         posset = gsub(".txt","",posset)
-        
+
         if(file.info(queryfile)$size == 0){show(c("Empty file ", queryfile)); next}
-        
+
         query_gs = read.table(queryfile)
         if(dim(query_gs)[2]<2){
             query_gs = cbind(as.character(query_gs[,1]), rep(1, length(query_gs[,1])) )
@@ -77,10 +77,10 @@ dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/s
         rownames(query_gs) = as.character(query_gs[,1])
         queryIDs = sort(intersect(geneNodeNames, as.character(unique(query_gs[,1]))))
         nquery = length(queryIDs)
-        
+
         set.seed(041185)
         folds = sample(cut(seq(1,nquery),breaks=nfolds,labels=FALSE))
-        
+
         for(iter in 1:nfolds){
             ## separate training and testing
             train_idxs = which(folds!=iter)
@@ -92,23 +92,23 @@ dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/s
             testuni = as.character(setdiff(geneNodeNames, train_nidxs))
             ntestuni = length(testuni)
             show(queryfile)
-            
+
             similarityMatrix = simil(dcaMatrix, dcaMatrix[train_nidxs, ], method="cosine")
             averageSimilarities = sort(rowSums(similarityMatrix) / length(train_nidxs), decreasing=TRUE)
             selectedFeatureNames = names(averageSimilarities[1:nfeatures])
             selectedSimilarityMatrix = simil(dcaMatrix[geneNodeNames, ], dcaMatrix[selectedFeatureNames, ], method="cosine")
             selectedSimilarityMatrix = selectedSimilarityMatrix[geneNodeNames, selectedFeatureNames]
-            
+
             # geneScores = rowSums(selectedSimilarityMatrix) / length(selectedFeatureNames)
-            # 
-            # 
+            #
+            #
             # y = blankvec[geneNodeNames]
             # midxs = match(test_nidxs, geneNodeNames)
             # y[midxs] = as.numeric(query_gs[test_nidxs,2])
             # model = prediction(geneScores[testuni], as.factor(y)[testuni])
             # auc = performance(model, "auc")
             # test_aucval = round(as.numeric(slot(auc, "y.values")),3)
-            # 
+            #
             # y = blankvec[geneNodeNames]
             # midxs = match(train_nidxs, geneNodeNames)
             # y[midxs] = as.numeric(query_gs[train_nidxs,2])
@@ -116,16 +116,18 @@ dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/s
             # model = prediction(geneScores[trainuni], as.factor(y)[trainuni])
             # auc  = performance(model, "auc")
             # train_aucval = round(as.numeric(slot(auc, "y.values")),3)
-            
+
+            y = blankvec[geneNodeNames]
             midxs = match(train_nidxs, geneNodeNames)
             y[midxs] = as.numeric(query_gs[train_nidxs,2])
 
             weights = c(nrow(selectedSimilarityMatrix) / length(train_nidxs), 1)
+            #weights = c(1, 1)
             names(weights) = c(1, 0)
-            
-            svc = svm(x = selectedSimilarityMatrix, as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights)
+
+            svc = svm(x = selectedSimilarityMatrix, as.factor(y), kernel='radial', gamma = 1 / length(midxs), probability = TRUE, class.weights = weights, cost=.08)
             pred = predict(svc,  selectedSimilarityMatrix, probability = TRUE)
-            
+
             y = blankvec[geneNodeNames]
             midxs = match(test_nidxs, geneNodeNames)
             y[midxs] = as.numeric(query_gs[test_nidxs,2])
@@ -134,7 +136,7 @@ dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/s
             #perf = performance(model,"tpr","fpr")
             test_aucval = round(as.numeric(slot(auc, "y.values")),3)
             show(test_aucval)
-            
+
             y = blankvec[geneNodeNames]
             midxs = match(train_nidxs, geneNodeNames)
             y[midxs] = as.numeric(query_gs[train_nidxs,2])
@@ -144,13 +146,13 @@ dca_dist_analysis<- function(possetfile = "C:/Users/Alex/workspace/data/msigdb/s
             #perf = performance(model,"tpr","fpr")
             train_aucval = round(as.numeric(slot(auc, "y.values")),3)
             show(train_aucval)
-            
+
             rtable = rbind(rtable, c(queryfile, test_aucval, train_aucval))
         } #end iter
     } #end queryset
     colnames(rtable) = c("Query File", "Number of Features", "Test AUC", "Train AUC")
-    write.table(rtable, "out2.txt", quote=F, row.names=F, sep=",")
+    write.table(rtable, "out3.txt", quote=F, row.names=F, sep=",")
 } #end function
 
 
-dca_dist_analysis(possetfile = "C:/Users/Alex/workspace/data/msigdb/setlists/combo.txt", unifile = "C:/Users/Alex/workspace/data/msigdb/gene_sets/hsap_universe.txt", weight = "unweighted", normalize = "type", restarts = .7, maxiters = 50, thresh = 0.001, nfolds = 3, st2keep = 50, nfeatures = 250, property_types = c("gene_ontology"), writepreds = 1, outdir = "C:/Users/Alex/workspace/data/msigdb/results/1st_")
+dca_dist_analysis()
