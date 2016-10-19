@@ -1,0 +1,35 @@
+1. The format of the input files:
+Node file: each line represents a node and the format is “<node name> <node type>”.
+Link file: each line represents a link and the format is “<node name 1> <node name 2> <link weight> <link type>”
+
+2. There are 4 main classes in the codes:
+(1) line_node: the node class
+(2) line_hin: the network class. You may construct several different networks between a set of nodes.
+(3) line_trainer_edge: a trainer class. In each iteration, the trainer randomly samples an edge of a given type and optimises the parameters. Two random walk based optimisation function are also given, which use random walk to expand the node neighbours.
+(4) line_trainer_path: a trainer class. In each iteration, the trainer randomly samples a meta-path instance to do optimisation. Three different models are provided for this trainer. For the details of the models, you may refer to the ECML/PKDD submission.
+
+3. For each training function in line_trainer_edge and line_trainer_path, 4 different modes are provided:
+  -mode 0: the function will not use the linear transformation vectors (P and Q)
+  -mode 1: the function will only optimise the embedding vectors and will not optimise the transformation vectors (P and Q)
+  -mode 2: the function will only optimise the transformation vectors (P and Q) and will not optimise the embedding vectors
+  -mode 3: the function will optimise both of the transformation vectors (P and Q) and the embedding vectors
+
+In most cases, the results are a little worse if the transformation vectors are not used (mode 0).
+
+4. Several parameters should be set by hand:
+(1) -size : the dimension of the embedding vectors
+(2) -negative : the number of negative samples used in optimisation and default is 5
+(3) -samples : the number of training samples used in each iteration (You may set it as 1 in most cases)
+(4) -iters: the number of iterations
+(5) -depth : the depth of the random walk
+(6) -restart : the restart probability
+(7) -threads : the number of threads used in training
+(8) -alpha : the initial learning rate and the default is 0.025
+
+5. An example script is provided in the run.sh
+
+6. A toy node file and link file are provided in node.txt and link.txt
+
+7. An example file for the network construction is provided in main.cpp
+
+8. The codes rely on the gsl library and the eigen package. You may use the makefile to compile the codes.

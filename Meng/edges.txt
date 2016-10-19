@@ -1,0 +1,5 @@
+/workspace/R-code/data/msigdb/networks/network-v3beta/gene_ontology.edge
+/workspace/R-code/data/msigdb/networks/network-v3beta/STRING_textmining.500.edge
+/workspace/R-code/data/msigdb/networks/network-v3beta/PPI_direct_interaction.edge
+/workspace/R-code/data/msigdb/networks/network-v3beta/PPI_genetic_interaction.edge
+/workspace/R-code/data/msigdb/networks/network-v3beta/PPI_physical_association.edge
