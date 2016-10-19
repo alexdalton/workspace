@@ -4,8 +4,8 @@ library(e1071)
 
 
 # Input variables
-smoothedNetworkFile = "/workspace/R-code/Human.GO.TM.H.Loose.Smoothed.Booleanized.rds"
-possetFile = "/workspace/R-code/data/msigdb/setlists/combo.txt"
+smoothedNetworkFile = "/workspace/data/smoothedNetworks/Human.GO.TM.H.Loose.Smoothed.Booleanized.rds"
+possetFile = "/workspace/data/msigdb/setlists/combo.txt"
 nfolds = 5
 nXGBthreads = 8
 
