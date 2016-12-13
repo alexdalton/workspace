@@ -1,0 +1,3 @@
+/workspace/data/test/testSets/test1.txt
+/workspace/data/test/testSets/test2.txt
+/workspace/data/test/testSets/test3.txt
